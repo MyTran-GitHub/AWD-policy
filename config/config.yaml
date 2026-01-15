@@ -1,0 +1,167 @@
+# AWD Policy Transportability Analysis Configuration
+# =====================================================
+
+# Study Areas
+study_areas:
+  vietnam:
+    name: "Vietnam Mekong Delta"
+    roi: [105.100683, 10.064180]  # [lon, lat] - center point
+    bbox: [104.5, 9.5, 106.5, 11.0]  # [min_lon, min_lat, max_lon, max_lat]
+    year: 2022
+    rice_asset: "projects/ee-mytransatellite/assets/Rice-VN-2022-v1"
+    description: "Mekong Delta rice production system"
+  
+  japan:
+    name: "Japan Rice System"
+    roi: [140.5, 36.5]  # Center coordinates
+    bbox: [130, 30, 145, 45]  # National bounds
+    year: 2022
+    rice_asset: "projects/ee-mytransatellite/assets/Rice-JPN-2023-v1"
+    description: "National rice production system"
+
+# Water Balance Parameters
+water_balance:
+  # Date settings
+  season_start_dekad: 10  # Dekad (10-day period) when season starts
+  season_end_dekad: 28    # Dekad when season ends
+  exclude_first_dekads: 2 # Exclude first N dekads (establishment phase)
+  exclude_last_dekads: 1  # Exclude last N dekads (harvest phase)
+  
+  # Rainfall & Irrigation
+  minimum_rainfall_threshold: 5.0  # mm below which supplemental irrigation applied
+  
+  # Water Deficit Sensitivity Analysis
+  deficit_thresholds:
+    - -25   # Mild deficit
+    - -50   # Moderate deficit (recommended)
+    - -70
+    - -90
+    - -110
+    - -130
+    - -150  # Severe deficit
+  
+  # Classification thresholds for AWD suitability
+  fraction_suitable_dekads:
+    high: 0.66      # High suitability: ≥66% of dekads
+    moderate: 0.33  # Moderate suitability: 33-66%
+    low: 0.0        # Low suitability: <33%
+
+# Biophysical Constraints
+biophysical:
+  # Soil texture classification parameters
+  soil_texture:
+    clay:
+      heavy_clay_threshold: 45        # % clay → heavy clay (Class 1)
+      clay_loam_min: 20
+      clay_loam_max: 45
+      sandy_clay_loam_sand_min: 52
+    sand:
+      sandy_clay_loam_sand_min: 52
+  
+  # Percolation rates by soil texture class (mm/day)
+  percolation_rates:
+    class_1_heavy_clay: 3.0      # mm/day
+    class_2_clay_loam: 4.0
+    class_3_sandy_clay_loam: 9.0
+    class_4_other: 12.0
+  
+  # Slope constraints
+  slope:
+    steep_threshold: 10  # degrees - areas > this are unsuitable
+  
+  # Drainage classification
+  drainage_suitable: [1, 2]  # Soil texture classes considered suitable
+
+# Remote Sensing Data Sources
+data_sources:
+  # Rainfall
+  chirps:
+    collection: "UCSB-CHG/CHIRPS/DAILY"
+    band: "precipitation"
+    scale: 5000  # meters
+    description: "Climate Hazards Group InfraRed Precipitation with Stations"
+  
+  # Potential Evapotranspiration
+  modis_pet:
+    collection: "MODIS/061/MOD16A2"
+    band: "PET"
+    scale: 500   # meters
+    scale_factor: 0.1  # Convert to mm per 8 days
+    description: "MODIS PET 8-day composite"
+  
+  agera5:
+    collection: "projects/climate-engine-pro/assets/ce-ag-era5/daily"
+    scale: 5000
+    description: "AgERA5 climate dataset for ET0 calculation"
+  
+  # Elevation & Slope
+  srtm:
+    collection: "USGS/SRTMGL1_Ellip/SRTMGL1_Ellip"
+    scale: 30    # meters
+    description: "SRTM Digital Elevation Model"
+  
+  # Soil Properties
+  soilgrids:
+    clay:
+      collection: "projects/soilgrids-isric/clay_mean"
+      band: "clay_0-5cm_mean"
+      scale: 250
+      scale_factor: 0.1  # Convert to percent
+    sand:
+      collection: "projects/soilgrids-isric/sand_mean"
+      band: "sand_0-5cm_mean"
+      scale: 250
+      scale_factor: 0.1  # Convert to percent
+    description: "SoilGrids 250m soil property maps"
+
+# GEE Processing Parameters
+gee:
+  project_id: "ee-mytransatellite"
+  scale: 500                # meters - output resolution
+  max_pixels: 1e13
+  crs: "EPSG:4326"
+
+# Output Configuration
+output:
+  data_dir: "data/processed"
+  figures_dir: "outputs/figures"
+  tables_dir: "outputs/tables"
+  
+  # Export formats
+  export_formats:
+    - "tif"      # GeoTIFF
+    - "csv"      # Statistics tables
+    - "png"      # Visualization
+  
+  # Visualization parameters
+  visualization:
+    suitability_palette: ["red", "yellow", "green"]  # Low, Moderate, High
+    water_deficit_palette: ["darkblue", "blue", "cyan", "yellow", "orange", "red"]
+    dpi: 300
+    figsize: [12, 8]
+
+# Analysis Parameters
+analysis:
+  # Fragmentation metrics
+  fragmentation:
+    min_patch_size: 5  # minimum hectares to count as valid patch
+    connectivity_threshold: 100  # meters - max distance to adjacent patch
+  
+  # Regional statistics
+  regions:
+    vietnam:
+      - name: "Mekong Delta"
+        bounds: [104.5, 9.5, 106.5, 11.0]
+    japan:
+      - name: "Kanto Plain"
+        bounds: [139.5, 35.5, 141.0, 36.5]
+      - name: "Tohoku"
+        bounds: [140.0, 38.0, 142.0, 41.0]
+      - name: "Kyushu"
+        bounds: [130.0, 32.0, 132.0, 34.0]
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/awd_pipeline.log"
